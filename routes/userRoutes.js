@@ -10,8 +10,9 @@ router.post('/login', authController.loginUser);
 router.post('/forgotPassword', authController.forgotPassword);
 router.patch('/resetPassword/:token', authController.resetPassword);
 router.get('/logout', authController.logout);
-
+//
 router.use(authController.protect);
+
 
 router.get('/profile', userController.getUserProfile);
 router.patch('/updateMe', uploadUserPhoto, resizeUserPhoto, userController.updateMe);

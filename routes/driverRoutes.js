@@ -13,7 +13,7 @@ router.patch('/updateMyPassword', driverController.updatePassword);
 router.post('/register', driverController.registerDriver);
 router.post('/login', driverController.loginDriver);
 router.get('/logout', driverController.logoutDriver);
-//
+
 // User profile routes
 router.patch(
   '/updateMe',
