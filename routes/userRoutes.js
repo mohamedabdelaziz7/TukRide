@@ -9,7 +9,12 @@ router.post('/signup', authController.signupUser);
 router.post('/login', authController.loginUser);
 router.post('/forgotPassword', authController.forgotPassword);
 router.patch('/resetPassword/:token', authController.resetPassword);
-router.get('/logout', authController.logout);
+
+router.get('/logout', authController.protect, authController.logout);
+
+router.patch('/updatePassword', authController.protect, authController.updatePassword);
+
+
 //
 router.use(authController.protect);
 
@@ -17,7 +22,7 @@ router.use(authController.protect);
 router.get('/profile', userController.getUserProfile);
 router.patch('/updateMe', uploadUserPhoto, resizeUserPhoto, userController.updateMe);
 router.delete('/deleteMe', userController.deleteMe);
-router.patch('/updatePassword', userController.updatePassword);
+
 
 router.get('/availableRides', userController.availableRides);
 router.post('/bookRide', userController.bookRide);

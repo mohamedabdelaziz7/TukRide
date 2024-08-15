@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const { promisify } = require("util");
 const jwt = require("jsonwebtoken");
-const User = require("../models/userModel"); // Ensure the path is correct
+const User = require("../models/userModel");
 const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 const sendEmail = require("../utils/email");
@@ -41,7 +41,7 @@ exports.signupUser = catchAsync(async (req, res, next) => {
     useremail: req.body.useremail,
     userphone: req.body.userphone,
     password: req.body.password,
-    passwordConfirm: req.body.passwordConfirm, // Ensure password confirmation is handled
+    passwordConfirm: req.body.passwordConfirm,
   });
 
   createSendToken(newUser, 201, res);
@@ -51,24 +51,38 @@ exports.signupUser = catchAsync(async (req, res, next) => {
 exports.loginUser = catchAsync(async (req, res, next) => {
   const { useremail, password } = req.body;
 
-  // 1) Check if email and password exist
   if (!useremail || !password) {
     return next(new AppError("Please provide email and password", 400));
   }
 
-  // 2) Check if user exists and password is correct
   const user = await User.findOne({ useremail }).select("+password");
 
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError("Incorrect email or password", 401));
   }
 
-  // 3) If everything is okay, send token to client
   createSendToken(user, 200, res);
 });
 
 // User logout
+const jwtBlacklist = new Set(); // Can be a more persistent storage like Redis for scaling
+
 exports.logout = (req, res) => {
+  // Check if the cookie exists
+  const token = req.cookies.jwt;
+
+  // If there's no JWT cookie, the user is already logged out
+  if (!token) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'You are already logged out!',
+    });
+  }
+
+  // Blacklist the token (if using blacklist approach)
+  jwtBlacklist.add(token);
+
+  // Clear the JWT cookie by setting it to 'loggedout'
   res.cookie('jwt', 'loggedout', {
     expires: new Date(Date.now() + 10 * 1000), // Expires in 10 seconds
     httpOnly: true,
@@ -80,36 +94,43 @@ exports.logout = (req, res) => {
   });
 };
 
+
 // Protect routes
 exports.protect = catchAsync(async (req, res, next) => {
-  // 1) Get token and check if it's there
   let token;
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     token = req.headers.authorization.split(' ')[1];
+  } else if (req.cookies.jwt) {
+    token = req.cookies.jwt;
   }
 
-  if (!token) {
-    return next(new AppError('You are not logged in!', 401));
+  // Check if token exists
+  if (!token || token === 'loggedout') {
+    return next(new AppError('You are logged out! Please log in again.', 401));
   }
 
-  // 2) Verify token
+  // Check if token is blacklisted
+  if (jwtBlacklist.has(token)) {
+    return next(new AppError('You are logged out! Please log in again.', 401));
+  }
+
+  // Verify the token
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
-  // 3) Check if user still exists
   const currentUser = await User.findById(decoded.id);
   if (!currentUser) {
     return next(new AppError('The user no longer exists.', 401));
   }
 
-  // 4) Check if user changed password after the token was issued
   if (currentUser.changedPasswordAfter(decoded.iat)) {
     return next(new AppError('User recently changed password! Please log in again.', 401));
   }
 
-  // Grant access to the protected route
   req.user = currentUser;
   next();
 });
+
+
 
 // Forgot password
 exports.forgotPassword = catchAsync(async (req, res, next) => {
@@ -122,7 +143,6 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   const resetURL = `${req.protocol}://${req.get("host")}/user/resetPassword/${resetToken}`;
-
   const message = `Forgot your password? Submit a PATCH request with your new password to: ${resetURL}.\nIf you didn't forget your password, please ignore this email.`;
 
   try {
@@ -169,21 +189,15 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 
 // Update password
 exports.updatePassword = catchAsync(async (req, res, next) => {
-  // 1) Get user from collection
-  const user = await User.findById(req.user.id).select('+password');
+  const user = await User.findById(req.user.id).select("+password");
 
-  // 2) Check if posted current password is correct
   if (!(await user.correctPassword(req.body.passwordCurrent, user.password))) {
-    return next(new AppError('Your current password is incorrect', 401));
+    return next(new AppError("Your current password is wrong", 401));
   }
 
-  // 3) If so, update password
   user.password = req.body.password;
-  user.passwordConfirm = req.body.passwordConfirm;
+  user.passwordConfirm = req.body.passwordConfirm; 
   await user.save();
 
-  // 4) Log user in, send JWT
   createSendToken(user, 200, res);
 });
-
-  
