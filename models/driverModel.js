@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-
 const driverSchema = new mongoose.Schema({
   profile: {
     type: String,
@@ -25,6 +24,6 @@ const driverSchema = new mongoose.Schema({
   },
 });
 
-const driverModel = mongoose.model('driverModel', driverSchema);
+const Driver = mongoose.model('Driver', driverSchema);
 
-module.exports = driverModel;
+module.exports = Driver;

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const validator = require('validator');
 const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
@@ -7,40 +8,34 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'default profile.png',
   },
-  username: {
-    type: String,
-    required: [true, 'Please provide a username'],
-  },
+ 
   useremail: {
     type: String,
-    required: true,
+    required: [true, 'Please provide your email '],
     unique: true,
-    lowercase: true,  
+    lowercase: true,
+    validate: [validator.isEmail, 'Please provide a vaild email'],
   },
   userphone: {
     type: String,
-    required: true,
+    required: [true, 'Please provide a number '],
     unique: true,
   },
-  photo: {
-    type: String,
-    default: 'default.jpg',
-  },
+  photo: String,
   password: {
     type: String,
     required: [true, 'Please provide a password'],
-    minlength: [8, 'Password must be at least 8 characters long'],
-    select: false,  // Ensures the password is not returned in queries
+    minlength: 8,
   },
   passwordConfirm: {
     type: String,
     required: [true, 'Please confirm your password'],
     validate: {
-      // Custom validator to check that passwords match
+      // This only works on CREATE AND SAVE!!!
       validator: function (el) {
         return el === this.password;
       },
-      message: 'Passwords are not the same!',
+      message: 'Passwords are not the same !',
     },
   },
   passwordChangedAt: Date,
@@ -104,4 +99,3 @@ userSchema.methods.createPasswordResetToken = function () {
 const User = mongoose.model('User', userSchema);
 
 module.exports = User;
-

@@ -3,12 +3,12 @@ const mongoose = require('mongoose');
 const rideSchema = new mongoose.Schema(
   {
     user: {
-      type: Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
     },
     driver: {
-      type: Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.ObjectId,
       ref: 'Driver',
       required: true,
     },
@@ -40,7 +40,7 @@ const rideSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'completed', 'cancelled'],
+      enum: ['pending', 'completed', 'cancelled', 'booked'], 
       default: 'pending',
     },
     startTime: {
@@ -49,6 +49,14 @@ const rideSchema = new mongoose.Schema(
     },
     endTime: {
       type: Date,
+    },
+    rating: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    review: {
+      type: String,
     },
   },
   { timestamps: true }

@@ -1,35 +1,43 @@
 const express = require('express');
 const userController = require('../controllers/userController');
 const authController = require('../controllers/authController');
-const { uploadUserPhoto, resizeUserPhoto } = require('../middlewares/fileUpload');
 
 const router = express.Router();
+// Password management routes
+router.post('/forgotPassword', authController.forgotPasswordUser);
+router.post('/verifyCode', authController.verifyPasswordResetCode);
+router.patch('/resetPassword', authController.resetPasswordUser);
 
+router.patch(
+  '/updateMyPassword',
+  authController.protect,
+  authController.updatePasswordUser
+);
+
+// Authentication routes
 router.post('/signup', authController.signupUser);
 router.post('/login', authController.loginUser);
-router.post('/forgotPassword', authController.forgotPassword);
-router.patch('/resetPassword/:token', authController.resetPassword);
-
 router.get('/logout', authController.protect, authController.logout);
-
-router.patch('/updatePassword', authController.protect, authController.updatePassword);
-
-
+//
+// User profile routes
 //
 router.use(authController.protect);
-
-
 router.get('/profile', userController.getUserProfile);
-router.patch('/updateMe', uploadUserPhoto, resizeUserPhoto, userController.updateMe);
+router.patch(
+  '/updateMe',
+  userController.uploadUserPhoto,
+  userController.resizeUserPhoto,
+  userController.updateMe
+);
 router.delete('/deleteMe', userController.deleteMe);
 
-
+// Ride management routes
 router.get('/availableRides', userController.availableRides);
-router.post('/bookRide', userController.bookRide);
-router.post('/cancelRide', userController.cancelRide);
+router.post('/bookRide/:rideId', userController.bookRide); 
+router.delete('/cancelRide/:rideId', userController.cancelRide);
 router.get('/rideHistory', userController.rideHistory);
-router.post('/rateRide', userController.rateRide);
+
+// Ride rating route
+router.post('/rateRide/:rideId', userController.rateRide);
 
 module.exports = router;
-
-
