@@ -8,13 +8,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'default profile.png',
   },
- 
   useremail: {
     type: String,
     required: [true, 'Please provide your email '],
     unique: true,
     lowercase: true,
-    validate: [validator.isEmail, 'Please provide a vaild email'],
+    validate: [validator.isEmail, 'Please provide a valid email'],
   },
   userphone: {
     type: String,
@@ -29,40 +28,42 @@ const userSchema = new mongoose.Schema({
   },
   passwordConfirm: {
     type: String,
-    required: [true, 'Please confirm your password'],
     validate: {
-      // This only works on CREATE AND SAVE!!!
+      // This only works on CREATE and SAVE!!!
       validator: function (el) {
         return el === this.password;
       },
-      message: 'Passwords are not the same !',
+      message: 'Passwords are not the same!',
     },
   },
   passwordChangedAt: Date,
-  passwordResetToken: String,
   passwordResetExpires: Date,
+  passwordResetCode: String,  
+  passwordResetVerified: Boolean,
   active: {
     type: Boolean,
     default: true,
     select: false,
-  }
+  },
 });
-
 // Encrypt password using bcrypt before saving the document
 userSchema.pre('save', async function (next) {
-  // Only run if the password field was modified
-  if (!this.isModified('password')) return next();
-
-  // Hash the password with a cost of 12
+  // Only run if the password field was modified or the document is new
+  if (!this.isModified('password') || this.isNew) {
+    if (this.passwordConfirm && this.passwordConfirm !== this.password) {
+      return next(new Error('Passwords are not the same!'));
+    }
+    this.passwordConfirm = undefined; // Clear passwordConfirm field
+  }
+  
+  // Hash the password
   this.password = await bcrypt.hash(this.password, 12);
 
-  // Set `passwordChangedAt` to the current time when password changes
+  // Set passwordChangedAt
   if (!this.isNew) {
-    this.passwordChangedAt = Date.now() - 1000;  // Ensure token is created after password change
+    this.passwordChangedAt = Date.now() - 1000;
   }
 
-  // Clear `passwordConfirm` field as it is not needed in the DB
-  this.passwordConfirm = undefined;
   next();
 });
 
@@ -81,20 +82,8 @@ userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
   return false;
 };
 
-// Generate and hash password reset token
-userSchema.methods.createPasswordResetToken = function () {
-  // Create reset token
-  const resetToken = crypto.randomBytes(32).toString('hex');
 
-  // Hash the token and set it on the user schema
-  this.passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
-  // Set expiration time for token (10 minutes from now)
-  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
-
-  // Return the raw reset token (to be sent to the user)
-  return resetToken;
-};
 
 const User = mongoose.model('User', userSchema);
 
