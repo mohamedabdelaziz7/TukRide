@@ -30,6 +30,8 @@ router.patch(
   userController.updateMe
 );
 router.delete('/deleteMe', userController.deleteMe);
+// Endpoint to update user location
+router.patch('/updateLocation', userController.updateLocation);
 
 // Ride management routes
 router.get('/availableRides', userController.availableRides);

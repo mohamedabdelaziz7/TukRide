@@ -376,3 +376,25 @@ const upload = multer({
 });
 
 exports.uploadUserPhoto = upload.single('photo');
+
+//share location
+exports.updateLocation = catchAsync(async (req, res, next) => {
+  const { latitude, longitude } = req.body;
+
+  if (!latitude || !longitude) {
+      return next(new AppError('Please provide both latitude and longitude.', 400));
+  }
+
+  const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { location: { type: 'Point', coordinates: [longitude, latitude] } },
+      { new: true, runValidators: true }
+  );
+
+  res.status(200).json({
+      status: 'success',
+      data: {
+          user: updatedUser,
+      },
+  });
+});
