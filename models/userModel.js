@@ -45,6 +45,9 @@ const userSchema = new mongoose.Schema({
     default: true,
     select: false,
   },
+  userEmailVerified: Boolean,
+  emailVerificationCode: String,
+  emailVerificationExpires: Date,
 });
 // Encrypt password using bcrypt before saving the document
 userSchema.pre('save', async function (next) {

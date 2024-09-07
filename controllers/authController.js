@@ -38,19 +38,149 @@ const createSendToken = (userOrDriver, statusCode, res) => {
   });
 };
 
-// User signup
+// User signup with email verification
 exports.signupUser = catchAsync(async (req, res, next) => {
-  const newUser = await User.create({
-    username: req.body.username,
-    useremail: req.body.useremail,
-    userphone: req.body.userphone,
-    password: req.body.password,
-    passwordConfirm: req.body.passwordConfirm,
-  });
+  const { username, useremail, userphone, password, passwordConfirm } = req.body;
 
-  createSendToken(newUser, 201, res);
+  // Check if the user already exists
+  const existingUser = await User.findOne({ useremail });
+
+  if (existingUser && existingUser.isVerified) {
+    return next(new AppError('This email is already registered and verified. Please log in.', 400));
+  }
+
+  // Generate a verification code
+  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const hashedVerificationCode = crypto.createHash('sha256').update(verificationCode).digest('hex'); 
+
+  let user;
+
+  if (existingUser && !existingUser.isVerified) {
+    // Update the existing user's verification code and expiry
+    existingUser.emailVerificationCode = hashedVerificationCode;
+    existingUser.emailVerificationExpires = Date.now() + 10 * 60 * 1000 ; 
+    await existingUser.save({ validateBeforeSave: false });
+    user = existingUser;
+  } else {
+    // Create a new user
+    user = await User.create({
+      username,
+      useremail,
+      userphone,
+      password,
+      passwordConfirm,
+      emailVerificationCode: hashedVerificationCode, 
+      emailVerificationExpires: Date.now() + 10 * 60 * 1000, 
+    });
+  }
+
+  // Send the verification code via email
+  const message = `Hi ${user.username},\nPlease verify your email with this code: ${verificationCode}\nThis code is valid for 24 hours.\nThanks for joining us!\nThe TukRide Team`;
+
+  try {
+    await sendEmail({
+      email: user.useremail,
+      subject: 'Email Verification Code',
+      message,
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Verification code sent to email!',
+    });
+  } catch (err) {
+    user.emailVerificationCode = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    return next(new AppError('There was an error sending the email. Try again later!', 500));
+  }
+});
+// Resend verification code
+exports.resendVerificationCode = catchAsync(async (req, res, next) => {
+  const { useremail } = req.body;
+
+  const user = await User.findOne({ useremail });
+
+  if (!user) {
+    return next(new AppError('There is no user with that email address.', 404));
+  }
+
+  if (user.isVerified) {
+    return next(new AppError('This email is already verified.', 400));
+  }
+
+  // Generate a new verification code
+  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const hashedVerificationCode = crypto.createHash('sha256').update(verificationCode).digest('hex');
+
+  user.emailVerificationCode = hashedVerificationCode;
+  user.emailVerificationExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+  await user.save({ validateBeforeSave: false });
+
+  const message = `Your verification code is ${verificationCode}. It is valid for 10 minutes.`;
+
+  try {
+    await sendEmail({
+      email: user.useremail,
+      subject: 'Your new email verification code',
+      message,
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Verification code resent to email!',
+    });
+  } catch (err) {
+    user.emailVerificationCode = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    return next(new AppError('There was an error resending the email. Try again later!', 500));
+  }
 });
 
+
+
+
+// verifyEmail function
+exports.verifyEmailUser = async (req, res, next) => {
+  try {
+  
+    const user = await User.findOne({
+      useremail: req.body.useremail,
+      emailVerificationCode: req.body.emailVerificationCode,
+      emailVerificationExpires: { $gt: Date.now() } 
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Invalid or expired verification code.'
+      });
+    }
+
+    user.userEmailVerified = true;
+    
+
+    user.emailVerificationCode = undefined;
+    user.emailVerificationExpires = undefined;
+    
+ 
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Email verified successfully.'
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'fail',
+      message: err.message
+    });
+  }
+};
 // Driver signup
 exports.signupDriver = catchAsync(async (req, res, next) => {
   const newDriver = await Driver.create({
@@ -64,7 +194,8 @@ exports.signupDriver = catchAsync(async (req, res, next) => {
   createSendToken(newDriver, 201, res);
 });
 
-// User login
+
+// User login with email verification check
 exports.loginUser = catchAsync(async (req, res, next) => {
   const { useremail, password } = req.body;
 
@@ -76,6 +207,10 @@ exports.loginUser = catchAsync(async (req, res, next) => {
 
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError('Incorrect email or password', 401));
+  }
+
+  if (!user.isVerified) {
+    return next(new AppError('Your email is not verified. Please verify your email to log in.', 401));
   }
 
   createSendToken(user, 200, res);
@@ -175,7 +310,6 @@ exports.protect = catchAsync(async (req, res, next) => {
   req.user = currentUser;
   next();
 });
-
 // Forgot and reset password functions can be extended similarly for Drivers as for Users.
 // Forgot password for User
 exports.forgotPasswordUser = catchAsync(async (req, res, next) => {
@@ -362,6 +496,8 @@ exports.resetPasswordDriver = catchAsync(async (req, res, next) => {
 
   createSendToken(driver, 200, res);
 });
+
+
 // Update password for User
 exports.updatePasswordUser = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.user.id).select('+password');

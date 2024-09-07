@@ -48,5 +48,9 @@ router.get('/completedRides', userController.completedRides);
 
 // Ride rating route
 router.post('/rateRide/:rideId', userController.rateRide);
+//
+router.post('/verifyEmail', authController.verifyEmailUser);
+router.post('/resendVerificationCode', authController.resendVerificationCode);
+
 
 module.exports = router;
