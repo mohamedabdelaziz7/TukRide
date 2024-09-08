@@ -9,19 +9,21 @@ router.post('/forgotPassword', authController.forgotPasswordUser);
 router.post('/verifyCode', authController.verifyPasswordResetCode);
 router.patch('/resetPassword', authController.resetPasswordUser);
 
-router.patch(
-  '/updateMyPassword',
-  authController.protect,
-  authController.updatePasswordUser
-);
-
 // Authentication routes
 router.post('/signup', authController.signupUser);
 router.post('/login', authController.loginUser);
-router.get('/logout', authController.protect, authController.logout);
+
+// Email verification routes (No JWT required)
+//router.post('/verifyEmail', authController.verifyEmailUser);
+//router.post('/resendVerificationCode', authController.resendVerificationCode);
+
+// Protected routes (JWT required)
+router.use(authController.protect); // Protect all routes below this line
+
+router.patch('/updateMyPassword', authController.updatePasswordUser);
+router.get('/logout', authController.logout);
 
 // User profile routes
-router.use(authController.protect);
 router.get('/profile', userController.getUserProfile);
 router.patch(
   '/updateMe',
@@ -30,6 +32,7 @@ router.patch(
   userController.updateMe
 );
 router.delete('/deleteMe', userController.deleteMe);
+
 // Endpoint to update user location
 router.patch('/updateLocation', userController.updateLocation);
 
@@ -48,9 +51,5 @@ router.get('/completedRides', userController.completedRides);
 
 // Ride rating route
 router.post('/rateRide/:rideId', userController.rateRide);
-//
-router.post('/verifyEmail', authController.verifyEmailUser);
-router.post('/resendVerificationCode', authController.resendVerificationCode);
-
 
 module.exports = router;

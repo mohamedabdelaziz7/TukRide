@@ -46,7 +46,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   });
 });
 exports.getUserProfile = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.user._id);
+  const user = await User.findById(req.user._id).select('name useremail userphone profile');
 
   if (!user) {
     return next(new AppError('User not found', 404));
