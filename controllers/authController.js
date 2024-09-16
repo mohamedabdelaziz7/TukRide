@@ -41,7 +41,7 @@ const createSendToken = (userOrDriver, statusCode, res) => {
 // User signup
 exports.signupUser = catchAsync(async (req, res, next) => {
   const newUser = await User.create({
-    username: req.body.username,
+    name: req.body.name,
     useremail: req.body.useremail,
     userphone: req.body.userphone,
     password: req.body.password,
@@ -372,6 +372,8 @@ exports.updatePasswordUser = catchAsync(async (req, res, next) => {
 
   user.password = req.body.password;
   user.passwordConfirm = req.body.passwordConfirm;
+  user.passwordChangedAt = undefined;
+  user.passwordConfirm = undefined;
   await user.save();
 
   createSendToken(user, 200, res);

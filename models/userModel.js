@@ -4,6 +4,10 @@ const validator = require('validator');
 const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Please provide your name'], 
+  },
   profile: {
     type: String,
     default: 'default profile.png',
